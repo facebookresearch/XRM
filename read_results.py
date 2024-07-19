@@ -141,7 +141,7 @@ def generate_table_2(wga_table, avg_acc_table, args):
 
     assert args.datasets == ["Waterbirds", "CelebA", "MultiNLI", "CivilComments"]
     assert args.algorithms == ["ERM", "GroupDRO"]
-    assert args.group_labels == ["yes", "inferred"]
+    assert args.group_labels == ["no", "yes", "inferred"]
 
     missing_rows = {}
     for i, gl in enumerate(args.group_labels):
@@ -171,7 +171,7 @@ def generate_table_2(wga_table, avg_acc_table, args):
         '    &       &   AFR$^\\dagger$   &  94.4 & 90.4  &  91.3 & 82.0  &  81.4 & 73.4  &  89.8 & 68.7  &  89.2 & 78.6 \\\\\n'
         '\\midrule\n'
         '\\multirow{7}{*}{\\xmark} &   \\multirow{7}{*}{\\xmark}\n'
-        f'            &   ERM            {missing_rows["ERM_inferred"]} \\\\\n'
+        f'            &   ERM            {missing_rows["ERM_no"]} \\\\\n'
         '    &       &   LfF$^\\dagger$   &  86.6 & 75.0  &  81.1 & 53.0  &  71.4 & 57.3  &  69.1 & 42.2  &  77.1 & 56.9 \\\\\n'
         '    &       &   EIIL$^\\dagger$  &  90.8 & 64.5  &  95.7 & 41.7  &  80.3 & 64.7  &  ---  & ---   &  ---  & ---  \\\\\n'
         '    &       &   JTT$^\\dagger$   &  88.9 & 71.2  &  95.9 & 48.3  &  81.4 & 65.1  &  79.0 & 51.0  &  86.3 & 58.9 \\\\\n'

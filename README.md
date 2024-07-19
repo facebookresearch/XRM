@@ -118,7 +118,7 @@ To generate the full table of results as provided in the paper:
 ```bash
 python read_results.py --dir phase_2_results --datasets $DATASETS --algorithms $ALGOS --group_labels no yes inferred --generate_table table_1
 QUADRUPLET="Waterbirds CelebA MultiNLI CivilComments"
-python read_results.py --dir phase_2_results --datasets $QUADRUPLET --algorithms ERM GroupDRO --group_labels yes inferred --generate_table table_2
+python read_results.py --dir phase_2_results --datasets $QUADRUPLET --algorithms ERM GroupDRO --group_labels no yes inferred --generate_table table_2
 ```
 
 ## License
