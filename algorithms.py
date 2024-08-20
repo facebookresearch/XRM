@@ -6,7 +6,7 @@
 
 
 import torch
-from torch.nn.functional import cross_entropy
+from torch.nn.functional import cross_entropy, softmax, one_hot
 import torch.autograd as autograd
 
 
@@ -19,6 +19,8 @@ def get_algorithm(hparams, net, optim):
         return GroupDRO(hparams, net, optim)
     elif hparams['algorithm_name'] == 'IRM':
         return IRM(hparams, net, optim)
+    elif hparams['algorithm_name'] == 'LC':
+        return LC(hparams, net, optim)
 
 
 class ERM:
@@ -43,6 +45,9 @@ class ERM:
         if self.optim.lr_scheduler is not None:
             self.optim.lr_scheduler.step()
 
+    def predict(self, x):
+        return self.net(x)
+
     def evaluate(self, loader):
         self.net.eval()
         i_s = []
@@ -55,7 +60,7 @@ class ERM:
                 x = x.to(self.device)
                 i_s += [i]
                 ys += [y.to(self.device)]
-                y_hats += [self.net(x)]
+                y_hats += [self.predict(x)]
                 ms += [m.to(self.device)]
         i_s = torch.cat(i_s)
         sorted_indices = torch.argsort(i_s)
@@ -82,6 +87,52 @@ class GroupDRO(ERM):
 
         self.q /= self.q.sum()
         return (self.q * grp_losses).sum()
+
+
+class LC(ERM):
+
+    def predict(self, x):
+        out = self.net(x)
+        if self.net.training:
+            return out
+        return out[..., :out.size(-1)//2]
+
+    def gce(self, logits, target, tau=0.8):
+        probs = softmax(logits, dim=1)
+        pred = probs.argmax(1)
+        target_one_hot = one_hot(target, num_classes=logits.size(1)).float()
+        loss = (1 - (probs ** tau) * target_one_hot).sum(dim=1) / tau
+        
+        return sum([loss[pred.eq(t)].mean() for t in target.unique()])
+
+    def get_m_y_prior(self, y, m_prob=None):
+        g = 2 * y + m_prob.argmax(1)
+        m_prob_at_y = m_prob[range(len(y)), y][:, None]
+        m_y_prior = torch.tensor([m_prob_at_y[g.eq(g_i)].mean() for g_i in range(4)])
+        m_y_prior = torch.nan_to_num(m_y_prior)
+        m_y_prior = m_y_prior.reshape(2, 2).T.cuda()
+        m_y_prior = m_y_prior / (m_y_prior.sum(1, keepdim=True) + 1e-4)
+        return m_y_prior
+
+    def get_loss(self, out, y, m=None):
+        y_hat = out[..., :out.size(-1)//2]
+
+        loss = 0
+        if self.hparams['use_true_m']:
+            m_prob = one_hot(m).float()
+        else:
+            m_hat = out[..., out.size(-1)//2:]
+            m_prob = softmax(m_hat.detach() / self.hparams['temp'], dim=1)
+            loss += 0.1 * self.gce(m_hat, y)
+
+        m_y_prior = self.get_m_y_prior(y, m_prob)
+        m_pred = m_prob.argmax(1)
+        p_y_given_m = m_y_prior[m_pred]
+        shift = torch.log(p_y_given_m + 1e-4)
+
+        loss += cross_entropy(y_hat + shift, y)
+
+        return loss
 
 
 class XRM(ERM):

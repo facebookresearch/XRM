@@ -84,17 +84,24 @@ def get_hparams(args):
         'ColorMNIST_V3': 2,
         'MultiColorMNIST': 10}[args['dataset']]
 
+    if args['algorithm'] == 'LC':
+        hparams['temp'] = rs.choice([0.01, 0.1, 1.0])
+        hparams['num_y'] *= 2
+        hparams['use_true_m'] = False
+
     # for debugging only
     if hparams['quick_run']:
         hparams['precompute_features'] = True
         hparams['resume'] = False
         hparams['num_step'] = 10000
         hparams['num_workers'] = 0
+        # hparams['lr'] = 0.001
         hparams['lr'] = 0.001
         hparams['weight_decay'] = 0
         hparams['batch_size'] = 2000
         hparams['last_layer_dropout'] = 0.1
         hparams['eta'] = 0.04
+        hparams['temp'] = 0.1
 
     ext = f'hpcomb_{args["hparams_comb"]}_seed{args["seed"]}'
     hparams['ckpt_file'] = os.path.join(hparams['out_dir'], f'ckpt_{ext}.pt')
