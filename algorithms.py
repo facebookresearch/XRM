@@ -19,8 +19,8 @@ def get_algorithm(hparams, net, optim):
         return GroupDRO(hparams, net, optim)
     elif hparams['algorithm_name'] == 'IRM':
         return IRM(hparams, net, optim)
-    elif hparams['algorithm_name'] == 'LC':
-        return LC(hparams, net, optim)
+    elif hparams['algorithm_name'] == 'LA':
+        return LA(hparams, net, optim)
 
 
 class ERM:
@@ -89,7 +89,7 @@ class GroupDRO(ERM):
         return (self.q * grp_losses).sum()
 
 
-class LC(ERM):
+class LA(ERM):
 
     def predict(self, x):
         out = self.net(x)
@@ -106,13 +106,18 @@ class LC(ERM):
         return sum([loss[pred.eq(t)].mean() for t in target.unique()])
 
     def get_m_y_prior(self, y, m_prob=None):
-        g = 2 * y + m_prob.argmax(1)
-        m_prob_at_y = m_prob[range(len(y)), y][:, None]
-        m_y_prior = torch.tensor([m_prob_at_y[g.eq(g_i)].mean() for g_i in range(4)])
-        m_y_prior = torch.nan_to_num(m_y_prior)
-        m_y_prior = m_y_prior.reshape(2, 2).T.cuda()
-        m_y_prior = m_y_prior / (m_y_prior.sum(1, keepdim=True) + 1e-4)
-        return m_y_prior
+        # LC: \sum p(m,y|x) = p(m,y)
+        prior = torch.cat([
+            m_prob[y.eq(y_i)].sum(0).unsqueeze(1) / len(y)
+            for y_i in y.unique()], 1)
+
+        # Christos Tsirigotis et al.: p(y|m)
+        if self.hparams['adjustment_method'] == 'uLA':
+            return prior / prior.sum(1, keepdim=True)
+        elif self.hparams['adjustment_method'] == 'LC':
+            return prior
+        else:
+            raise NotImplementedError
 
     def get_loss(self, out, y, m=None):
         y_hat = out[..., :out.size(-1)//2]
