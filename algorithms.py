@@ -19,7 +19,7 @@ def get_algorithm(hparams, net, optim):
         return GroupDRO(hparams, net, optim)
     elif hparams['algorithm_name'] == 'IRM':
         return IRM(hparams, net, optim)
-    elif hparams['algorithm_name'] == 'LA':
+    elif hparams['algorithm_name'] in ['LC', 'uLA']:
         return LA(hparams, net, optim)
 
 
@@ -105,16 +105,16 @@ class LA(ERM):
         
         return sum([loss[pred.eq(t)].mean() for t in target.unique()])
 
-    def get_m_y_prior(self, y, m_prob=None):
+    def get_prior(self, y, m_prob=None):
         # LC: \sum p(m,y|x) = p(m,y)
         prior = torch.cat([
             m_prob[y.eq(y_i)].sum(0).unsqueeze(1) / len(y)
             for y_i in y.unique()], 1)
 
         # Christos Tsirigotis et al.: p(y|m)
-        if self.hparams['adjustment_method'] == 'uLA':
+        if self.hparams['algorithm_name'] == 'uLA':
             return prior / prior.sum(1, keepdim=True)
-        elif self.hparams['adjustment_method'] == 'LC':
+        elif self.hparams['algorithm_name'] == 'LC':
             return prior
         else:
             raise NotImplementedError
@@ -130,10 +130,9 @@ class LA(ERM):
             m_prob = softmax(m_hat.detach() / self.hparams['temp'], dim=1)
             loss += 0.1 * self.gce(m_hat, y)
 
-        m_y_prior = self.get_m_y_prior(y, m_prob)
+        prior = self.get_prior(y, m_prob)
         m_pred = m_prob.argmax(1)
-        p_y_given_m = m_y_prior[m_pred]
-        shift = torch.log(p_y_given_m + 1e-4)
+        shift = torch.log(prior[m_pred] + 1e-4).detach()
 
         loss += cross_entropy(y_hat + shift, y)
 

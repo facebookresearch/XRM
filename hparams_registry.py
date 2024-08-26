@@ -84,11 +84,10 @@ def get_hparams(args):
         'ColorMNIST_V3': 2,
         'MultiColorMNIST': 10}[args['dataset']]
 
-    if args['algorithm'] == 'LA':
+    if args['algorithm'] in ['LC', 'uLA']:
         hparams['temp'] = rs.choice([0.01, 0.1, 1.0])
         hparams['num_y'] *= 2
         hparams['use_true_m'] = False
-        hparams['adjustment_method'] = 'LC'
 
     # for debugging only
     if hparams['quick_run']:

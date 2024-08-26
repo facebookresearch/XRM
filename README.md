@@ -1,5 +1,14 @@
 # Cross Risk Minimization (XRM)
 
+---
+
+#### Running LC baseline:
+```bash
+python main.py --phase 2 --datasets Waterbirds --group_labels yes --algorithm LC --out_dir ./phase_2_results --num_hparams_combs 1 --num_seeds 1 --quick_run
+```
+
+---
+
 ![License](https://img.shields.io/badge/license-CC--BY--NC-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-brightgreen.svg)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
@@ -65,7 +74,7 @@ For each experiment, we try 10 different hyperparameter combinations with a sing
 Before that, let's define the following variables:
 ```bash
 DATASETS="Waterbirds CelebA MultiNLI CivilComments ColorMNIST MetaShift ImagenetBG"
-ALGOS="ERM GroupDRO RWG SUBG"
+ALGOS="ERM GroupDRO RWG SUBG LC uLA"
 ```
 
 ### Phase 1: Inferring Group Labels Using XRM
