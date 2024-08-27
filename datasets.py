@@ -7,6 +7,7 @@
 
 import os
 import pandas as pd
+import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import DataLoader, SequentialSampler, Sampler
@@ -27,16 +28,19 @@ def get_loaders(hparams):
                 'MColor': MColor,
                 'ColorMNIST_V3': ColorMNIST_V3,
                 'MetaShift': MetaShift,
-                'ImagenetBG': ImagenetBG}[hparams['dataset_name']]
+                'ImagenetBG': ImagenetBG,
+                'NICOpp': NICOpp}[hparams['dataset_name']]
     else:
         Dset = {'Waterbirds': FeatWaterbirds,
                 'CelebA': FeatCelebA,
                 'MetaShift': FeatMetaShift,
-                'ImagenetBG': FeatImagenetBG}[hparams['dataset_name']]
+                'ImagenetBG': FeatImagenetBG,
+                'NICOpp': FeatNICOpp}[hparams['dataset_name']]
     data_path = hparams['data_path']
     subg = hparams['algorithm_name'] == 'SUBG'
     gl = hparams['group_labels']
     bs = hparams['batch_size']
+    # discard_group_idx = hparams['discard_group_idx']
 
     tr = Dset(data_path, split='tr', group_labels=gl, subg=subg)
     va = Dset(data_path, split='va', group_labels=gl, subg=False)
@@ -254,6 +258,10 @@ class FeatImagenetBG(BaseFeatDataset):
         super().__init__(
             data_path, split, group_labels, subg, 'backgrounds_challenge')
 
+class FeatNICOpp(BaseFeatDataset):
+    def __init__(self, data_path, split, group_labels, subg):
+        super().__init__(
+            data_path, split, group_labels, subg, 'nicopp')
 
 # ############################################################################
 # ######################### Non-Featurized Versions ##########################
@@ -544,6 +552,26 @@ class ImagenetBG(BaseGroupDataset):
         metadata = os.path.join(
             data_path,
             "backgrounds_challenge",
+            "metadata.csv")
+
+        transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406],
+                                 [0.229, 0.224, 0.225])])
+        super().__init__("", split, metadata, transform,
+                         group_labels, subg)
+
+    def transform(self, x):
+        return self.transform_(Image.open(x).convert("RGB"))
+
+
+class NICOpp(BaseGroupDataset):
+    def __init__(self, data_path, split, group_labels, subg):
+        metadata = os.path.join(
+            data_path,
+            "nicopp",
             "metadata.csv")
 
         transform = transforms.Compose([

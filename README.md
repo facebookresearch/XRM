@@ -7,6 +7,11 @@
 python main.py --phase 2 --datasets Waterbirds --group_labels yes --algorithm LC --out_dir ./phase_2_results --num_hparams_combs 1 --num_seeds 1 --quick_run
 ```
 
+#### Running Discriminative Energy Learner (DEL):
+```bash
+python main.py --phase 2 --datasets Waterbirds --group_labels yes --algorithm DEL --out_dir ./phase_2_results --num_hparams_combs 1 --num_seeds 1 --quick_run
+```
+
 ---
 
 ![License](https://img.shields.io/badge/license-CC--BY--NC-blue.svg)
@@ -51,7 +56,7 @@ pip install -r requirements.txt
 The following command downloads seven datasets:
 
 ```bash
-python download.py --download --data_path ./data waterbirds celeba civilcomments multinli imagenetbg metashift cmnist
+python download.py --download --data_path ./data waterbirds celeba civilcomments multinli imagenetbg metashift nicopp cmnist
 ```
 
 ## A 1-Minute Run on Waterbirds

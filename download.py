@@ -7,6 +7,7 @@
 
 import argparse
 import os
+import json
 import tarfile
 import logging
 import gdown
@@ -50,6 +51,7 @@ def download_datasets(data_path, datasets):
         'multinli': download_multinli,
         'imagenetbg': download_imagenetbg,
         'metashift': download_metashift,
+        'nicopp': download_nicopp,
         'cmnist': download_cmnist}
     for dataset in datasets:
         dataset_downloaders[dataset](data_path)
@@ -135,6 +137,20 @@ def download_metashift(data_path):
         remove=True)
 
 
+def download_nicopp(data_path):
+    logging.info("Downloading NICO++...")
+    nicopp_dir = os.path.join(data_path, "nicopp")
+    os.makedirs(nicopp_dir, exist_ok=True)
+    download_and_extract(
+        "https://www.dropbox.com/sh/u2bq2xo8sbax4pr/AACvgYpfQHfS7u_M3yJwkK-ra/track_1/track_1.zip?dl=1",
+        os.path.join(nicopp_dir, "track_1.zip"),
+        remove=True)
+    download_and_extract(
+        "https://www.dropbox.com/sh/u2bq2xo8sbax4pr/AADMZPkoNJVI4IP1qbLuKtlFa/track_1/dg_label_id_mapping.json?dl=1",
+        os.path.join(nicopp_dir, "dg_label_id_mapping.json"),
+        remove=False)
+
+
 def download_cmnist(data_path):
     from torchvision import datasets
     sub_dir = Path(data_path)/'cmnist'
@@ -142,7 +158,7 @@ def download_cmnist(data_path):
     datasets.mnist.MNIST(sub_dir, train=False, download=True)
 
 
-def generate_metadata(data_path, datasets=['celeba', 'waterbirds', 'civilcomments', 'multinli']):
+def generate_metadata(data_path, datasets):
     dataset_metadata_generators = {
         'waterbirds': generate_metadata_waterbirds,
         'celeba': generate_metadata_celeba,
@@ -150,10 +166,11 @@ def generate_metadata(data_path, datasets=['celeba', 'waterbirds', 'civilcomment
         'multinli': generate_metadata_multinli,
         'imagenetbg': generate_metadata_imagenetbg,
         'metashift': generate_metadata_metashift,
+        'nicopp': generate_metadata_nicopp,
         'cmnist': generate_metadata_cmnist}
     for dataset in datasets:
         dataset_metadata_generators[dataset](data_path)
-        if dataset in ['waterbirds', 'celeba', 'imagenetbg', 'metashift']:
+        if dataset in ['waterbirds', 'celeba', 'imagenetbg', 'metashift', 'nicopp']:
             precompute_features(data_path, dataset)
 
 
@@ -174,7 +191,8 @@ def precompute_features(data_path, dataset):
         'dataset_name': {'waterbirds': 'Waterbirds',
                          'celeba': 'CelebA',
                          'imagenetbg': 'ImagenetBG',
-                         'metashift': 'MetaShift'}[dataset],
+                         'metashift': 'MetaShift',
+                         'nicopp': 'NICOpp'}[dataset],
         'data_path': data_path,
         'algorithm_name': 'ERM',
         'group_labels': 'yes',
@@ -340,6 +358,55 @@ def generate_metadata_metashift(data_path, test_pct=0.25, val_pct=0.1):
     df.to_csv(os.path.join(ms_dir, "metadata_metashift.csv"), index=False)
 
 
+def generate_metadata_nicopp(data_path):
+    # Code obtained from SubpopBench
+    logging.info("Generating metadata for NICO++...")
+    sub_dir = Path(os.path.join(data_path, "nicopp"))
+    attributes = ['autumn', 'dim', 'grass', 'outdoor', 'rock', 'water']   # 6 attributes, 60 labels
+    meta = json.load(open(sub_dir/'dg_label_id_mapping.json', 'r'))
+
+    def make_balanced_testset(df, seed=666, verbose=True, num_samples_val_test=75):
+        # each group has a test set size of (2/3 * num_samples_val_test) and a val set size of
+        # (1/3 * num_samples_val_test); if total samples in original group < num_samples_val_test,
+        # val/test will still be split by 1:2, but no training samples remained
+        import random
+        random.seed(seed)
+        val_set, test_set = [], []
+        for g in pd.unique(df['g']):
+            df_group = df[df['g'] == g]
+            curr_data = df_group['filename'].values
+            random.shuffle(curr_data)
+            split_size = min(len(curr_data), num_samples_val_test)
+            val_set += list(curr_data[:split_size // 3])
+            test_set += list(curr_data[split_size // 3:split_size])
+        if verbose:
+            print(f"Val: {len(val_set)}\nTest: {len(test_set)}")
+        assert len(set(val_set).intersection(set(test_set))) == 0
+        combined_set = dict(zip(val_set, [1 for _ in range(len(val_set))]))
+        combined_set.update(dict(zip(test_set, [2 for _ in range(len(test_set))])))
+        df['split'] = df['filename'].map(combined_set)
+        df['split'].fillna(0, inplace=True)
+        df['split'] = df.split.astype(int)
+        return df
+
+    all_data = []
+    for c, attr in enumerate(attributes):
+        for label in meta:
+            folder_path = sub_dir/'public_dg_0416'/'train'/attr/label
+            y = meta[label]
+            for img_path in Path(folder_path).glob('*.jpg'):
+                all_data.append({
+                    'filename': img_path,
+                    'y': y,
+                    'a': c
+                })
+    df = pd.DataFrame(all_data)
+    df['g'] = df['a'] + df['y'] * len(attributes)
+    df = make_balanced_testset(df)
+    df = df.drop(columns=['g'])
+    df.to_csv(os.path.join(sub_dir, "metadata.csv"), index=False)
+
+
 def generate_metadata_imagenetbg(data_path):
     logging.info("Generating metadata for ImagenetBG...")
     bg_dir = Path(os.path.join(data_path, "backgrounds_challenge"))
@@ -388,7 +455,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download dataset')
     parser.add_argument('datasets', nargs='+', type=str, default=[
         'waterbirds', 'celeba', 'civilcomments', 'multinli',
-        'imagenetbg', 'metashift', 'cmnist'])
+        'imagenetbg', 'metashift', 'nicopp', 'cmnist'])
     parser.add_argument('--data_path', type=str)
     parser.add_argument('--download', action='store_true', default=False)
     args = parser.parse_args()
