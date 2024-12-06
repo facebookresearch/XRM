@@ -70,11 +70,17 @@ def get_optim(hparams, net):
 
     if hparams['net_type'] == 'resnet':
 
-        opt = torch.optim.SGD(
-            net.parameters(),
-            hparams['lr'],
-            momentum=0.9,
-            weight_decay=hparams['weight_decay'])
+        if hparams['adam']:
+            opt = torch.optim.Adam(
+                net.parameters(),
+                hparams['lr'],
+                weight_decay=hparams['weight_decay'])
+        else:
+            opt = torch.optim.SGD(
+                net.parameters(),
+                hparams['lr'],
+                momentum=0.9,
+                weight_decay=hparams['weight_decay'])
         opt.lr_scheduler = None
         return opt
 

@@ -125,13 +125,17 @@ class XRM(ERM):
             self.optim.lr_scheduler.step()
         self.flip_y(i, pred_ho)
 
-    def cross_mistakes(self, loader):
+    def cross_mistakes(self, loader, is_training=False):
         ys, pred_ab, _ = self.evaluate(loader)
         pred_a = pred_ab[..., 0]
         pred_b = pred_ab[..., 1]
+        if is_training:
+            pred_ho = pred_a * (1 - self.assigns) + pred_b * self.assigns
+        else:
+            pred_ho = None
         return torch.logical_or(
             pred_a.argmax(1).ne(ys),
-            pred_b.argmax(1).ne(ys)).long().cpu(), ys
+            pred_b.argmax(1).ne(ys)).long().cpu(), pred_ho, ys
 
 
 class IRM(ERM):

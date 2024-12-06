@@ -49,8 +49,9 @@ def phase_1(args):
         f'_seed{hparams["seed"]}.pt')
     inferred_groups, ys = {}, {}
     for split in ['tr', 'va']:
-        ig_, ys_ = algorithm.cross_mistakes(loaders[split])
+        ig_, ho_, ys_ = algorithm.cross_mistakes(loaders[split])
         inferred_groups[split] = ig_
+        inferred_groups[split + '_ho'] = ho_  # soft held-out preds
         ys[split] = ys_
     if is_degenerate(algorithm, inferred_groups, ys):
         report_stats(hparams, algorithm, loaders, hparams['num_step'])
@@ -85,6 +86,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Phase 1 or 2')
     parser.add_argument('--slurm_partition', type=str, default=None)
     parser.add_argument('--slurm_dir', type=str, default="./submitit")
+    parser.add_argument('--constraint', type=str, default='volta32gb')
     parser.add_argument('--phase', type=int, choices=[1, 2], required=True, 
                         help='1: group inference, 2: invariant learning')
     parser.add_argument('--data_path',
@@ -109,6 +111,7 @@ if __name__ == "__main__":
     group2.add_argument('--num_seeds', type=int)
     parser.add_argument('--quick_run', action='store_true',
                         help='Run with a single hparam combination to debug')
+    parser.add_argument('--adam', action='store_true')
 
     args = parser.parse_args()
 
@@ -173,6 +176,7 @@ if __name__ == "__main__":
                                    'seed': seed,
                                    'out_dir': out_dir,
                                    'quick_run': args.quick_run,
+                                   'adam': args.adam,
                                    'resume': args.resume}]
 
     run_phase = {1: phase_1, 2: phase_2}[args.phase]
@@ -191,6 +195,6 @@ if __name__ == "__main__":
             gpus_per_node=1,
             array_parallelism=512,
             cpus_per_task=4,
-            constraint='volta32gb',
+            constraint=args.constraint,
             partition=args.slurm_partition)
         executor.map_array(run_phase, args_list)

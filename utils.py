@@ -89,6 +89,9 @@ def report_stats(hparams, algorithm, loaders, step):
             metrics = get_metrics(hparams, ys, y_hats, ms)
             for metric, value in metrics.items():
                 stats[f'{split}_{metric}'] = value
+            if split == 'va' and hasattr(algorithm, 'va_m_hat'):
+                stats['va_gi_wga'] = get_metrics(
+                    hparams, ys, y_hats, algorithm.va_m_hat.cuda())['wga']
     with open(hparams['results_file'], 'a') as f:
         f.write('\n')
         json.dump(stats, f)
@@ -130,6 +133,7 @@ def process_json_files(pattern, json_files, is_phase_1, selection_criterion=None
         'hp_comb': [],
         'flip_rate': [],
         'va_wga': [],
+        'va_gi_wga': [],  # gi: group-inferred
         'te_wga': [],
         'va_avg_acc': [],
         'te_avg_acc': []
@@ -152,10 +156,14 @@ def process_json_files(pattern, json_files, is_phase_1, selection_criterion=None
             ind = (len(results[selection_criterion]) -
                    np.argmax(results[selection_criterion][::-1]) - 1)
             all_values['va_wga'].append(results['va_wga'][ind])
+            if 'va_gi_wga' in results.keys():
+                all_values['va_gi_wga'].append(results['va_gi_wga'][ind])
             all_values['te_wga'].append(results['te_wga'][ind])
             all_values['va_avg_acc'].append(results['va_avg_acc'][ind])
             all_values['te_avg_acc'].append(results['te_avg_acc'][ind])
 
+    if len(all_values['va_gi_wga']) == 0:
+        all_values.pop('va_gi_wga')
     return all_values
 
 

@@ -50,16 +50,21 @@ def read_phase_2(args, pattern, json_files):
     best_hp_comb = find_best_hparams_comb(
         dir_path, args.selection_criterion, seed=0)
 
-    for data in zip(all_values['hp_comb'],
-                    all_values['va_avg_acc'],
-                    all_values['va_wga'],
-                    all_values['te_avg_acc'],
-                    all_values['te_wga']):
-        hp_comb, va_avg_acc, va_wga, te_avg_acc, te_wga = data
+    for i in range(len(all_values['hp_comb'])):
+        hp_comb = all_values['hp_comb'][i]
+        va_avg_acc = all_values['va_avg_acc'][i]
+        va_wga = all_values['va_wga'][i]
+        va_gi_wga = all_values['va_gi_wga'][i] if 'va_gi_wga' in all_values.keys() else ''
+        te_avg_acc = all_values['te_avg_acc'][i]
+        te_wga = all_values['te_wga'][i]
         suffix = " (best)" if hp_comb == best_hp_comb else ""
-        print(f"hp_comb: {hp_comb}, va_avg_acc: {va_avg_acc:.6f}, "
-              f"va_wga: {va_wga:.6f}, te_avg_acc: {te_avg_acc:.2f}, "
-              f"te_wga: {te_wga:.2f}{suffix}")
+
+        print(
+            f"hp_comb: {hp_comb}, va_avg_acc: {va_avg_acc:.6f}, "
+            + f"va_wga: {va_wga:.3f}, "
+            + (f"va_gi_wga: {va_gi_wga:.6f}, " if 'va_gi_wga' in all_values.keys() else "")
+            + f"te_avg_acc: {te_avg_acc:.3f}, "
+            + f"te_wga: {te_wga:.3f}{suffix}")
 
     pattern = os.path.join(
         dir_path, f'results_hpcomb_{best_hp_comb}_seed*.json')
@@ -70,15 +75,21 @@ def read_phase_2(args, pattern, json_files):
         pattern, json_files, False, args.selection_criterion)
 
     print(f'\nAveraged over {len(all_values["va_wga"])} seeds:')
-    print(f"hp_comb: {best_hp_comb}, "
-          f"va_avg_acc: {np.mean(all_values['va_avg_acc']):.2f} "
-          f"(± {np.std(all_values['va_avg_acc']):.2f}), "
-          f"va_wga: {np.mean(all_values['va_wga']):.2f} "
-          f"(± {np.std(all_values['va_wga']):.2f}), "
-          f"te_avg_acc: {np.mean(all_values['te_avg_acc']):.2f} "
-          f"(± {np.std(all_values['te_avg_acc']):.2f}), "
-          f"te_wga: {np.mean(all_values['te_wga']):.2f} "
-          f"(± {np.std(all_values['te_wga']):.2f})")
+    metrics_list = {
+        'va_avg_acc': '.2f',
+        'va_wga': '.2f',
+        'te_avg_acc': '.3f',
+        'te_wga': '.3f'}
+    if 'va_gi_wga' in all_values.keys():
+        metrics_list['va_gi_wga'] = '.2f'
+
+    output_str = f"hp_comb: {best_hp_comb}, "
+    for metric, precision in metrics_list.items():
+        mean_value = np.mean(all_values[metric])
+        std_value = np.std(all_values[metric])
+        output_str += f"{metric}: {mean_value:{precision}} (± {std_value:{precision}}), "
+    output_str = output_str.rstrip(', ')
+    print(output_str)
 
 
 def aggregate_in_table(args):
